@@ -42,75 +42,45 @@ class C99
 {
 
   //-------------------------------------------------------------------------
-  //  Tokens
+  // Tokens
   //-------------------------------------------------------------------------
-
-  // D
-  def Digit = rule { "0" - "9" }
-  // L
-  def Letter = rule { "a" - "z" | "A" - "Z" | "_" }
-  // H
-  def Hex = rule { "0" - "9" | "a" - "f" | "A" - "Z" }
-
-
-  //-------------------------------------------------------------------------
-  // Numeric constants
-  //-------------------------------------------------------------------------
-
-
-  def Sign = rule { anyOf("+-") }
-
-  /**
-    * Draft C Spec: E/e
-    */
-  def Exponent = rule { ("E" | "e") ~ optional(Sign) ~ oneOrMore("0" - "9" | "a" - "f" | "A" - "Z") }
-
-  /**
-    * Draft C Spec: P/p
-    */
-  def BinaryExponent = rule { ("P" | "p") ~ optional(Sign)  ~ oneOrMore("0" - "9" ) }
-  //FS
-  def FloatSuffix = rule {  oneOrMore( anyOf("fFlL") ) }
-  //IS
-  //def IntegerSuffix = rule { zeroOrMore( anyOf("uUlL") )}
-
 
   /** Is a letter, digit, or usually significant identifier character.
     *
-    * May be used to test an identifying word is complete, yet
-    * allowing following operations, for example {{{counter++}}}
+    * Used to test an identifying word is consumed, yet
+    * allowing post-operations, for example {{{ counter++ }}}
     * (testing for whitespace at the end of the word would fail, this
-    * will not, yet show the word is syntacticly distinct).
+    * will not, yet show the operator is syntacticly distinct).
     */
   def LetterOrDigit = rule(SuppressNode)  { "a" - "z" | "A" - "Z" | "0" - "9" | "_" | "$" }
 
+  //
+  //  6.4 Lexical elements
+  //
 
-
-
-  def BasedNumeral = rule(SuppressSubnodes)  { "0" ~ (
-    // Hex
-    (anyOf("xX") ~ oneOrMore(Hex) ~ optional(IntegerSuffix)) |
-      // Octal
-      (oneOrMore(Digit) ~ optional(IntegerSuffix))
+  /** A token used in preprocessing statements.
+    * 
+    * In the Draft spec, tokens can be separated by
+    * whitespace. Whitespace is not allowed anywhere else aside from
+    * inside brackets, for header names and string literals.
+    *
+    */
+  def PreprocessingToken = rule {(
+    HeaderName
+      | Identifier
+      | StringLiteral
+      | PPNumber
+      | CharacterConstant
+      | Punctuator
+      //each non-white-space character that cannot be one of the above
+      //| (!anyOf(" \t\r\n\f") ~ ANY)
   )}
 
-  def StockNumeral = rule(SuppressSubnodes)  { oneOrMore(Digit) ~ (
-    optional(IntegerSuffix) |
-      // Whatever this is, not using...
-      //(optional(Letter)'(\\.|[^\\'])+'
-      (Exponent ~ optional(FloatSuffix)) |
-      // Should be zeroOrMore, but...
-      ("." ~ oneOrMore(Digit) ~ "(" ~ optional(Exponent) ~ ")" ~ optional(FloatSuffix))
-  )}
 
-  //def NumericLiteral = rule { (BasedNumeral | StockNumeral)  ~ Spacing }
-
-
-  ///////////////////////////
-
-  //-------------------------------------------------------------------------
+  //
   // 6.4.4 Constants
-  //-------------------------------------------------------------------------
+  //
+
   def OctalDigit = rule { "0" - "7" }
 
   def HexadecimalDigit = rule { "0" - "9" | "a" - "f" | "A" - "F" }
@@ -133,31 +103,12 @@ class C99
   //-------------------------------------------------------------------------
   def Escape = rule{ "\\" ~ ANY }
 
-
-
-
   def CharLiteral = rule { optional("L") ~ "'" ~ ( Escape | (!anyOf("'\\") ~ ANY)) ~ "'" ~ Spacing }
 
 
-  /*
-   def CharacterConstant  = rule {
-   ' c-char-sequence '
-   L' c-char-sequence '
-   }
-   */
 
   //-------------------------------------------------------------------------
-  //  Identifiers
-  //-------------------------------------------------------------------------
-  def Identifier = rule(SuppressSubnodes) { Letter ~ zeroOrMore(Letter|Digit) ~ Spacing }
-
-  def IdentifierNoSpace = rule { Letter ~ zeroOrMore(Letter|Digit) }
-
-
-
-
-  //-------------------------------------------------------------------------
-  //  helper methods
+  //  Parboiled helper methods
   //-------------------------------------------------------------------------
 
   def Keyword(keyword: String) = rule {
@@ -177,8 +128,11 @@ class C99
   //-------------------------------------------------------------------------
   // Separators, Operators
   //-------------------------------------------------------------------------
+  // This implementation does not generate rules for every token.
+  // Some are implemented inline. 
+  // Tokens are not expanded in the draft spec, but a PEG parsers has them here.
 
-  // N.B. These are not working with the Terminal declaration
+  // N.B. These are working with the Terminal method
   // from Java, but not in Scala
   final def ASSIGN = rule {
     ("=" ~ !"=" ~ Spacing).label("-" + "=" + "-")
@@ -324,25 +278,14 @@ class C99
   }
 
 
-  ////////////////
-
-
-  //final def BSR = Terminal(">>>", "=")
-  //final def BSREQU = Terminal(">>>=")
-  //final def LPOINT = Terminal("<")
-
-  //final def RPOINT = Terminal(">")
-
-
-  //final def AT = Terminal("@")
-
 
 
   //-------------------------------------------------------------------------
-  //  Keywords
+  //  A.1.2 Keywords
   //-------------------------------------------------------------------------
 
-  // Simple lists are not here, e.g.
+  // This implementation does not generate rules for every keyword.
+  // Some are implemented inline. Simple lists are not here, e.g.
   // StorageClassSpecifier
   //     "typedef"
   //       | "extern"
@@ -362,7 +305,7 @@ class C99
   // StructOrUnion
   // ...
   //
-
+/*
   def Keyword = rule {
     (
       "goto" | "break" | "continue" | "return"
@@ -372,8 +315,8 @@ class C99
         | "enum"
     ) ~ !LetterOrDigit
   }
-
-  // N.B. These are not working with the Keyword declaration
+*/
+  // N.B. These are working with the Keyword method
   // from Java, but not in Scala
   final def GOTO = ("goto" ~ !LetterOrDigit ~ Spacing).label("-" + "goto" + "-")
   final def SIZEOF = ("sizeof" ~ !LetterOrDigit ~ Spacing).label("-" + "sizeof" + "-")
@@ -397,11 +340,43 @@ class C99
 
   final def STATIC = ("static" ~ !LetterOrDigit ~ Spacing).label("-" + "static" + "-")
 
+
+  //-------------------------------------------------------------------------
+  // A.1.3 Identifiers
+  //-------------------------------------------------------------------------
+
+  def Identifier = rule(SuppressSubnodes) {
+ IdentifierChar ~ zeroOrMore(IdentifierChar|Digit) ~ Spacing 
+}
+
+  /** Matches characters accepatable in identifiers.
+    *
+    * Draft C Spec naming: `IdentifierNondigit`
+    * Draft C Spec note: The original allows for implementation specific insertion of characters (a feature, in this implementation, not exploited)
+    */
+def IdentifierChar = rule {(
+Letter
+| UniversalCharacterName
+//other implementation-defined characters
+)}
+
+  /** Matches low-byte letter characters.
+    *
+    * Draft C Spec naming: `NonDigit`
+    */
+  def Letter = rule { "a" - "z" | "A" - "Z" | "_" }
+
+  /** Matches decimal number characters.
+    *
+    */
+  def Digit = rule { "0" - "9" }
+
   //-------------------------------------------------------------------------
   // A.1.4 Universal character names
   //-------------------------------------------------------------------------
 
-
+/** Matches unicode characters
+*/
   def UniversalCharacterName  = rule {
     "\\u" ~ nTimes(4, HexadecimalDigit, Spacing)
     "\\U" ~ nTimes(8, HexadecimalDigit, Spacing)
@@ -427,7 +402,7 @@ class C99
     ) ~ Spacing
   }
 
-  // In my draft spec, the original is bad ordering. Check for Hex first, as it can positivly check the first chars as Digit ~ Letter. Then there is little difference between Octal and Decimal (the initial char being 0 or not) so try decimal, then octal.
+  // In my draft spec, the original has unhelpful ordering. Check for Hex first, as it can positivly check the first chars as Digit ~ Letter. Then there is little difference between Octal and Decimal (the initial char being 0 or not) so try decimal, then octal.
   def IntegerConstant = rule {
     (
       HexadecimalConstant
@@ -493,6 +468,8 @@ class C99
     anyOf("Ee") ~ optional(Sign) ~ DigitSequence
   }
 
+  def Sign = rule { anyOf("+-") }
+
   def HexadecimalFractionalConstant = rule {(
     optional(HexadecimalDigitSequence) ~ "." ~ HexadecimalDigitSequence
       | HexadecimalDigitSequence ~ optional(".")
@@ -557,13 +534,13 @@ class C99
     *
     * Draft C Spec: part of `HeaderNames`
     */
-  def GenericStringLiteral = rule { "\"" ~ zeroOrMore( Escape | (!anyOf("\r\n\"\\") ~ ANY)) ~ "\"" }
+  def BStringLiteral = rule { "\"" ~ oneOrMore( !("\"" | LineEnd) ~ ANY) ~ "\"" }
 
   /** A string literal
     *
     * This is the usual string literal, allowing a preceeding `Letter` as modifier.
     */
-  def StringLiteral = rule(SuppressSubnodes) { optional(Letter) ~ GenericStringLiteral ~ Spacing}
+  def StringLiteral = rule(SuppressSubnodes) { optional(Letter) ~ "\"" ~ zeroOrMore( !("\"" | "\\" | LineEnd) ~ ANY) ~ "\""  ~ Spacing}
 
   /** A string delimited with angle brackets
     *
@@ -571,7 +548,7 @@ class C99
     *
     * Draft C Spec: part of `HeaderNames`
     */
-  def RefLiteral = rule(SuppressSubnodes) { "<" ~ zeroOrMore( !(">") ~ ANY ) ~ ">" }
+  def HStringLiteral = rule(SuppressSubnodes) { "<" ~ oneOrMore( !(">" | LineEnd) ~ ANY ) ~ ">" }
 
 
   //-------------------------------------------------------------------------
@@ -579,40 +556,63 @@ class C99
   //-------------------------------------------------------------------------
 
   def Punctuator  = rule {(
-    "=" ~ optional("=")
+    ("=" ~ optional("="))
       | "." ~ optional("..")
-      | "[" | "]" | "(" | ")" | "{" | "}"
+      | "[" 
+      | "]"
+      | "(" 
+      | ")" 
+      | "{" 
+      | "}"
       | "-" ~ optional(anyOf("=->"))
       | "|" ~ optional(anyOf("|="))
       | "&" ~ optional(anyOf("&="))
       | "^" ~ optional("=")
       | "/" ~ optional("=")
       | "+" ~ optional(anyOf("=+"))
+
       | "*" ~ optional("=")
       | "%" ~ optional("=:>")
       | "!" ~ optional("=")
       | "<" ~ optional(anyOf("=<%:"))
       | ">" ~ optional(anyOf("=>"))
       | ":" ~ optional(anyOf(">"))
-      | "#" ~ optional("#")
-
-    | "~" | "?" |  ";"
+//TODO: Single HASH is freaking the parser? Is that with the HASH 
+// start to preprocessor lines, or a more subtle problem?
+      | "##"
+    | "~" 
+    | "?" 
+    |  ";"
       | "<<="
       | ","
       | "%:%:"
       | ">>="
-  )}
+  )
+}
+
+  //-------------------------------------------------------------------------
+  // A.1.8 Header names
+  //-------------------------------------------------------------------------
+
+/** Matches strings to be used in preprocessor header statements
+*
+    * Draft C Spec: `BStringLiteral` and `HStringLiteral` compound to `HeaderName`
+*/
+def HeaderName = rule {(
+HStringLiteral
+| BStringLiteral
+)}
 
   //-------------------------------------------------------------------------
   // A.1.9 Preprocessing numbers
   //-------------------------------------------------------------------------
 
   def PPNumber = rule {
-    oneOrMore(
-      "."
-        | Digit
+      optional(".") ~ Digit ~ zeroOrMore(
+         Digit
         //| IdentifierNondigit ?
-        | (Exponent | BinaryExponent) ~ Sign
+        | (anyOf("eEpP")) ~ Sign
+        | "."
     ) ~ Spacing
   }
 
@@ -646,13 +646,12 @@ class C99
     * A different name might be a `primitive' expression. The rule
     * also matches complex resolving expressions in brackets.
     * 
-    * @see [[Identifier]], [[NumericLiteral]], [[StringLiteral]], and [[CharLiteral]], all of which match. 
+    * @see [[Identifier]], [[NumericLiteral]], [[StringLiteral]], all of which match (Note that char literals are treated as part of `NumericLiteral`). 
     */
   def PrimaryExpression = rule {(
     Identifier
       | NumericLiteral
       | StringLiteral
-      //| CharLiteral
       | LPAR ~ Expression ~ RPAR
   )}
 
@@ -1071,7 +1070,6 @@ class C99
     *
     * Draft C Spec: `Pointer` compounds `TypeQualifierList` from the spec.
     */
-  // Is this right? No...
   def Pointer = rule {
     oneOrMore( STAR ~ zeroOrMore(TypeQualifier) )
   }
@@ -1130,7 +1128,6 @@ class C99
     *
     * e.g. {{{ const * char }}}
     */
-  // Is this right? Why have multiple qualifier lists?
   def TypeName = rule {
     NonStorageTypeSpecifier ~ optional(AbstractDeclarator)
   }
@@ -1296,7 +1293,8 @@ class C99
     * @see [[Root]]
     */
   def TranslationUnit = rule {
-    zeroOrMore(Spacing ~ (ExternalDeclaration | PreprocessDeclaration))
+    //zeroOrMore(Spacing ~ (ExternalDeclaration | PreprocessDeclaration))
+    zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
   }
 
   /** Matches a function definition or a declaration
@@ -1307,7 +1305,7 @@ class C99
 
   /** Matches a function
     *
-    * e.g. {{{ static void left(int *x, int *y) { x*--; } }}}
+    * e.g. {{{ static void left(int *x, int *y) { *x--; } }}}
     */
   // example not working?
   def FunctionDefinition = rule(SuppressSubnodes)  {
@@ -1340,52 +1338,11 @@ class C99
 
 
 
+
+
   //-------------------------------------------------------------------------
-  //  A.3 Preprocessor
+  //  A.3 Preprocessing directives
   //-------------------------------------------------------------------------
-
-  def PreprocessDeclaration = rule(SuppressSubnodes){ "#" ~ (
-    Include
-      | Other
-  ) ~ Spacing
-  }
-
-  def Include = rule { "include" ~ oneOrMore(!(anyOf("\"<")) ~ ANY) ~ (
-    GenericStringLiteral
-      | RefLiteral
-  ) ~ Line
-  }
-
-
-
-  // Not good enough. Needs to find a line not ending in a continuation symbol...
-  def Other = rule { Line }
-
-
-  /** A token used in preprocessing statements.
-    * 
-    * In the Draft spec, tokens can be separated by
-    * whitespace. Whitespace is not allowed anywhere else aside from
-    * inside brackets, for header names and string literals.
-    *
-    * Draft C Spec: `GenericStringLiteral` and `RefLiteral` compund to `HeaderName`
-    */
-  def PreprocessingToken = rule {(
-    GenericStringLiteral
-      | RefLiteral
-      | Identifier
-      | PPNumber
-      | CharLiteral
-      | StringLiteral
-      | Punctuator
-      //each non-white-space character that cannot be one of the above
-      | (!(WhitespaceChar) ~ ANY)
-  )}
-
-
-
-
-  //preprocessing-file:
 
   def Group : Rule0 = rule { oneOrMore(GroupPart) }
 
@@ -1453,7 +1410,7 @@ class C99
   }
 
 
-  // Humm?
+  //TODO: Implement...
   /*
    def MacroLParen = rule {
    //a ( character not immediately preceded by white-space
@@ -1466,7 +1423,7 @@ class C99
   }
 
   def PPTokens = rule {
-    PreprocessingToken ~ zeroOrMore(PreprocessingToken)
+    oneOrMore(PreprocessingToken)
   }
 
 

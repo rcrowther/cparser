@@ -6,14 +6,14 @@ A `c` parser (Scala)
 --------------------
 A `c` parser written in Scala. For Parboiled, the Java/Scala PEG parser.
 
-You only need one file from here, /src/parsers/c99. All the rest is support framework I used on the way.
+You only need one file from here, /src/parsers/c99.scala. All the rest is support framework I used on the way.
 
 
 Which dialect?
 --------------
 Saying you can parse 'c' is like saying you speak English. Which?
 
-This file was based on online BISON parsers, dated 1995. That may make them the informal 'C95' standard. They have been heavily revised in light of a 2005 draft I found. That could be anything, I'll never know, but it does include important features such as "inline". I called it 'C99' as it likely is, in some form.
+This file was based on BISON parsers available online, dated 1995. That may make them the informal 'C95' standard. They have been heavily revised in light of a 2005 draft I found. That could be anything, I'll never know, but it does include notable features such as "inline". I called it 'C99' as it likely is, in some form.
 
 
 How close is it?
@@ -41,15 +41,14 @@ References
 ----------------
 
 An original BISON parser,
-http://www.lysator.liu.se/c/ANSI-C-grammar-l.html#CONSTANT
+http://www.lysator.liu.se/c/ANSI-C-grammar-l.html
 
-The 2005 Draft 'c' specification,
+The 2005 draft 'c' specification,
 http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
 
-Parboiled GitHub
+Parboiled GitHub,
 https://github.com/sirthias/parboiled
 
-
-Parboiled Home page
+Parboiled Home page,
 http://parboiled.org
 
