@@ -1,0 +1,11 @@
+# Ignore everything
+*
+
+# Whitelist anything that's a directory
+!*/
+
+# The files/directories to not ignore.
+!.gitignore
+!README*
+!src/parsers/C99.scala
+!text/*
