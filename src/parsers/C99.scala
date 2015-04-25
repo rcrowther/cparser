@@ -36,8 +36,8 @@ import org.parboiled.errors.{ErrorUtils, ParsingException}
   */
 class C99
     extends Parser
+    // This import not needed!
     with InParser
-    with WhiteSpace
 {
 
   //-------------------------------------------------------------------------
@@ -46,10 +46,10 @@ class C99
 
   /** Is a letter, digit, or usually significant identifier character.
     *
-    * Used to test an identifying word is consumed, yet
-    * allowing post-operations, for example {{{ counter++ }}}
-    * (testing for whitespace at the end of the word would fail, this
-    * will not, yet show the operator is syntacticly distinct).
+    * Used to test an identifying word is consumed, yet allowing
+    * post-operations, for example {{{ counter++ }}} (testing for
+    * whitespace at the end of the word would fail, this will not, yet
+    * show the operator is syntacticly distinct).
     */
   def LetterOrDigit = rule(SuppressNode)  { "a" - "z" | "A" - "Z" | "0" - "9" | "_" | "$" }
 
@@ -74,7 +74,6 @@ class C99
       //| (!anyOf(" \t\r\n\f") ~ ANY)
   )}
 
-
   //
   // 6.4.4 Constants
   //
@@ -95,15 +94,13 @@ class C99
     anyOf("pP") ~ optional(Sign) ~ DigitSequence
   }
 
-
   //-------------------------------------------------------------------------
   //  String Literals
   //-------------------------------------------------------------------------
+
   def Escape = rule{ "\\" ~ ANY }
 
   def CharLiteral = rule { optional("L") ~ "'" ~ ( Escape | (!anyOf("'\\") ~ ANY)) ~ "'" ~ Spacing }
-
-
 
   //-------------------------------------------------------------------------
   //  Parboiled helper methods
@@ -121,14 +118,13 @@ class C99
     (string ~ !mustNotFollow ~ Spacing).label("-" + string + "-")
   }
 
-
-
   //-------------------------------------------------------------------------
   // Separators, Operators
   //-------------------------------------------------------------------------
   // This implementation does not generate rules for every token.
   // Some are implemented inline.
-  // Tokens are not expanded in the draft spec, but a PEG parsers has them here.
+  // Tokens are not expanded in the draft spec, but Parboiled would
+  // usually place them inline.
 
   // N.B. These are working with the Terminal method
   // from Java, but not in Scala
@@ -229,6 +225,7 @@ class C99
   }
 
   // Predef
+
   final def PREPROCESSHASH = rule {
     ("#" ~ PreprocessorWhitespace).label("-" + "#" + "-")
   }
@@ -274,9 +271,6 @@ class C99
   final def ELLIPSIS = rule {
     ("..." ~ Spacing).label("-" + "..." + "-")
   }
-
-
-
 
   //-------------------------------------------------------------------------
   //  A.1.2 Keywords
@@ -338,7 +332,6 @@ class C99
 
   final def STATIC = ("static" ~ !LetterOrDigit ~ Spacing).label("-" + "static" + "-")
 
-
   //-------------------------------------------------------------------------
   // A.1.3 Identifiers
   //-------------------------------------------------------------------------
@@ -360,7 +353,9 @@ class C99
   /** Matches characters accepatable in identifiers.
     *
     * Draft C Spec naming: `IdentifierNondigit`
-    * Draft C Spec note: The original allows for implementation specific insertion of characters (a feature, in this implementation, not exploited)
+    * Draft C Spec note: The original allows for implementation
+    * specific insertion of characters (a feature, in this
+    * implementation, not exploited)
     */
   def IdentifierChar = rule {(
     Letter
@@ -410,7 +405,10 @@ class C99
     ) ~ Spacing
   }
 
-  // In my draft spec, the original has unhelpful ordering. Check for Hex first, as it can positivly check the first chars as Digit ~ Letter. Then there is little difference between Octal and Decimal (the initial char being 0 or not) so try decimal, then octal.
+  // In my draft spec, the original has unhelpful ordering.  Check for
+  // Hex first, as it can positivly check the first chars as Digit ~
+  // Letter. Then there is little difference between Octal and Decimal
+  // (the initial char being 0 or not) so try decimal, then octal.
   def IntegerConstant = rule {
     (
       HexadecimalConstant
@@ -492,7 +490,8 @@ class C99
   )}
 
   def CChar = rule {(
-    // Draft spec statement below, but I thought c has a strict character set?
+    // Draft spec statement below, but I thought c has a strict
+    // character set?
     // Ah well...
     // "any member of the source character set except
     // the single-quote ', backslash \, or new-line character"
@@ -523,9 +522,6 @@ class C99
     "\\x" ~ oneOrMore(HexadecimalDigit)
   }
 
-
-
-
   //-------------------------------------------------------------------------
   // A.1.6 String literals
   //-------------------------------------------------------------------------
@@ -546,7 +542,8 @@ class C99
 
   /** A string literal with no spacing.
     *
-    * This is the usual string literal, allowing a preceeding `Letter` as modifier. The rule is modified to remove spacing.
+    * This is the usual string literal, allowing a preceeding `Letter`
+    * as modifier. The rule is modified to remove spacing.
     *
     * Used in the preprocessor.
     */
@@ -554,7 +551,8 @@ class C99
 
   /** A string literal.
     *
-    * This is the usual string literal, allowing a preceeding `Letter` as modifier.
+    * This is the usual string literal, allowing a preceeding `Letter`
+    * as modifier.
     */
   def StringLiteral = rule(SuppressSubnodes) { optional(Letter) ~ "\"" ~ zeroOrMore( !("\"" | "\\" | LineEnd) ~ ANY) ~ "\""  ~ Spacing}
 
@@ -593,7 +591,8 @@ class C99
       | "<" ~ optional(anyOf("=<%:"))
       | ">" ~ optional(anyOf("=>"))
       | ":" ~ optional(anyOf(">"))
-      //TODO: Single PREPROCESSHASH is freaking the parser? Is that with the PREPROCESSHASH
+      //TODO: Single PREPROCESSHASH is freaking the parser? Is that
+      //with the PREPROCESSHASH
       // start to preprocessor lines, or a more subtle problem?
       | "##"
       | "~"
@@ -612,7 +611,8 @@ class C99
 
   /** Matches strings to be used in preprocessor header statements.
     *
-    * Draft C Spec: `BStringLiteral` and `HStringLiteral` compound to `HeaderName`
+    * Draft C Spec: `BStringLiteral` and `HStringLiteral` compound to
+    * `HeaderName`
     */
   def HeaderName = rule {(
     HStringLiteral
@@ -677,7 +677,7 @@ class C99
     * This includes such ideas as dot and pointer access to
     * structs/unions, post-decrements, array referencing, etc.
     *
-    * e.g. {{{ [x-1] }}}, {{{ context->color }}}
+    * e.g. {{{ context->color }}}
     *
     * Draft C Spec: part of `PostfixExpression`
     * @see [[PostfixExpression]]
@@ -715,7 +715,7 @@ class C99
     * If the expression is incomplete (only sizeof(...) is not), this
     * rule calls follows with `PostfixExpression'.
     *
-    * e.g. {{{ &... }}}, {{{ ++... }}}, {{{ !... }}}, {{{ sizeof(int) }}}
+    * e.g. {{{ sizeof(int) }}}
     */
   def UnaryExpression : Rule0 = rule {
     zeroOrMore( INC | DEC | SIZEOF ) ~ (
@@ -779,18 +779,15 @@ class C99
     ExclusiveOrExpression ~ zeroOrMore(OR ~ ExclusiveOrExpression)
   }
 
-
   def LogicalAndExpression = rule {
     InclusiveOrExpression ~ zeroOrMore(ANDAND ~ InclusiveOrExpression)
   }
-
 
   /** Matches a '||' binary operation.
     */
   def LogicalOrExpression = rule {
     LogicalAndExpression ~ zeroOrMore(OROR ~ LogicalAndExpression)
   }
-
 
   /** Matches optional trailing conditional expressions.
     *
@@ -801,7 +798,6 @@ class C99
     LogicalOrExpression ~ optional(QUERY ~ Expression ~ COLON ~ ConditionalExpression)
   )}
 
-
   /** Matches an assigning expression.
     *
     * With adaption, this rule is used after the assign symbol (see
@@ -810,15 +806,15 @@ class C99
     * Can be as simple as a numeric constant, or a complex resolving
     * expression.
     *
-    * e.g. {{{ "1234, lets go" }}}, {{{ --a != b + c }}}
+    * e.g. {{{ --a != b + c }}}
     * @see [[Initializer]]
     */
   def AssignmentExpression = rule {
     zeroOrMore(UnaryExpression ~ AssignmentOperator) ~ ConditionalExpression
   }
 
-  // Aside from "=", these are the longest possible symbolic operators of their kind,
-  // so need no post-match tests.
+  // Aside from "=", these are the longest possible symbolic operators
+  // of their kind, so need no post-match tests.
   def AssignmentOperator = rule {
     (
       ("=" ~ !"=" )
@@ -852,26 +848,23 @@ class C99
     ConditionalExpression
   }
 
-
-
   //-------------------------------------------------------------------------
   // A.2.2 Declarations
   //-------------------------------------------------------------------------
 
   /** Declare a value
     *
-    * e.g. {{{ int a = "bonsai"; }}} {{{ int a; }}}
+    * e.g. {{{ int a = "bonsai"; }}}
     */
   def Declaration = rule(SuppressSubnodes) {
     DeclarationSpecifiers ~ optional(InitDeclaratorList) ~ SEMICOLON
   }
 
-
   /** All pre-specifiers to a declaration.
     *
     * e.g. {{{ static const int }}}
     *
-    * Must end in a type, e.g. {{{ int }}}
+    * Must end in a type, e.g. `int`
     *
     * Draft C Spec note: The spec allows these elements to be
     * unordered. To avoid ambiguity between types and type names (this
@@ -886,8 +879,6 @@ class C99
   def DeclarationSpecifiers = rule(SuppressSubnodes) {
     zeroOrMore(TypeQualifier | StorageClassSpecifier) ~ TypeSpecifier
   }
-
-
 
   def InitDeclaratorList = rule {
     InitDeclarator ~ zeroOrMore( COMMA ~ InitDeclarator )
@@ -977,8 +968,7 @@ class C99
         | "union"
     ) ~ !LetterOrDigit ~ Spacing
   }
-  
-  
+    
   def StructDeclarationList = rule {
     oneOrMore(StructDeclaration)
   }
@@ -1014,7 +1004,6 @@ class C99
   def StructDeclaratorList = rule {
     StructDeclarator ~ zeroOrMore( COMMA ~ StructDeclarator )
   }
-
 
   def StructDeclarator = rule {(
     Declarator ~ optional(COLON ~ ConstantExpression)
@@ -1052,7 +1041,7 @@ class C99
     *
     * Opens method parameter brackets, amongst others,
     *
-    * e.g. {{{ [4]; }}}, {{{ (); }}}
+    * e.g. {{{ [4]; }}}
     */
   def DirectDeclaratorParameters = rule {(
     (LSQR ~ (
@@ -1065,14 +1054,13 @@ class C99
 
   /** Matches a declaration of value (including functions) of some kind.
     *
-    * e.g {{{ myArray[4] }}}, {{{ *func() }}}
+    * e.g {{{ *myArray[4] }}}
     */
   def Declarator : Rule0 = rule { optional(PointerList) ~ DirectDeclarator }
   
-
   /** The main identifier and parameters of a declaration.
     *
-    * e.g. {{{ hill[5] }}}, {{{ (...) }}}
+    * e.g. {{{ hill[5] }}}
     *
     * @see [[Declarator]] for handling this with a pointer
     */
@@ -1094,7 +1082,8 @@ class C99
     *
     * e.g. {{{ ** const }}}
     *
-    * Draft C Spec: `PointerList` compounds `Pointer` and `PointerList` from the spec.
+    * Draft C Spec: `PointerList` compounds `Pointer` and
+    * `PointerList` from the spec.
     */
   def PointerList = rule {
     oneOrMore(Pointer)
@@ -1128,8 +1117,6 @@ class C99
     DeclarationSpecifiers ~ optional( Declarator | AbstractDeclarator)
   }
   
-
-
   /** Matches a list of identifiers.
     *
     * Used in some declarations.
@@ -1148,23 +1135,20 @@ class C99
     NonStorageTypeSpecifier ~ optional(AbstractDeclarator)
   }
   
-
-
   // Abstract declarators //
 
   /** Matches pointers (optionally followed by bracketed declarators), or bracketed declarators.
     *
-    * e.g. {{{ * }}} {{{ *(int) }}} {{{ (char* needle, Stack haystack) }}}
+    * e.g. {{{ (char* needle, Stack haystack) }}}
     */
   def AbstractDeclarator: Rule0 = rule {(
     PointerList ~ optional(DirectAbstractDeclaratorList)
       | DirectAbstractDeclaratorList
   )}
 
-
   /** Matches declarators in some form of bracketing.
     *
-    * e.g. {{{ () }}}, {{{ ("beak") }}}, {{{ (int, short) }}}, {{{ [a + 1] }}}
+    * e.g. {{{ [a + 1] }}}
     *
     * Draft C Spec naming: this rule is NOT `DirectAbstractDeclarator` from
     * the spec. 
@@ -1185,9 +1169,6 @@ class C99
     oneOrMore(DirectAbstractDeclarator)
   }
 
-
-
-
   //-------------------------------------------------------------------------
   //  (6.7.8) Initializers
   //-------------------------------------------------------------------------
@@ -1206,8 +1187,6 @@ class C99
     optional(Designation) ~ Initializer ~ oneOrMore(COMMA ~ optional(Designation) ~ Initializer)
   }
 
-
-
   def Designation = rule {
     oneOrMore(Designator) ~ ASSIGN
   }
@@ -1216,8 +1195,6 @@ class C99
     LSQR ~ ConstantExpression ~ RSQR
       | DOT ~ Identifier
   )}
-
-
 
   //-------------------------------------------------------------------------
   // A.2.3 Statements
@@ -1242,7 +1219,6 @@ class C99
       | DEFAULT ~ COLON ~ Statement
   )}
 
-
   /** Surrounds the statements inside a code block.
     *
     * This general rule is used for methods, and standalone as an item
@@ -1253,7 +1229,6 @@ class C99
   def CompoundStatement = rule {
     LCURVEY ~ zeroOrMore( Declaration | Statement) ~ RCURVEY
   }
-
 
   /** Matches a full statement.
     *
@@ -1282,7 +1257,6 @@ class C99
       | FOR ~ LPAR ~ ExpressionStatement ~ ExpressionStatement ~ optional( Expression ) ~ RPAR ~ Statement
   )}
 
-
   /** Matches jump statements.
     *
     * e.g. {{{ break; }}}, {{{ return; }}}
@@ -1296,12 +1270,9 @@ class C99
     ) ~ SEMICOLON
   }
 
-
-
   //-------------------------------------------------------------------------
   // A.2.4 External definitions
   //-------------------------------------------------------------------------
-
 
   /** Matches a declaration or a preprocessor declaration.
     *
@@ -1328,14 +1299,11 @@ class C99
     optional(DeclarationSpecifiers) ~ Declarator ~ optional(DeclarationList) ~ CompoundStatement
   }
   
-
   /** Matches a list of declarations.
     *
     * e.g. "const int jimmy, static Peep cricket"  
     */
   def DeclarationList = rule { oneOrMore( Declaration ) }
-
-
 
   //-------------------------------------------------------------------------
   //  Preprocessor Keywords
@@ -1352,22 +1320,20 @@ class C99
   final def PRAGMA = ("pragma" ~ !LetterOrDigit ~ Spacing).label("-" + "pragma" + "-")
   final def ERROR = ("error" ~ !LetterOrDigit ~ Spacing).label("-" + "error" + "-")
 
-
-
-
-
   //-------------------------------------------------------------------------
   //  A.3 Preprocessing directives
   //-------------------------------------------------------------------------
-  // Note that this parser is mainly intended as a reader, not a preliminary stage to
-  // processing. Thus it can not handle valid staged preprocessing. An example from
-  // the draft, this will expand to valid preprocessing directives,
+  // Note that this parser is mainly intended as a reader, not a
+  // preliminary stage to processing. Thus it can not handle valid
+  // staged preprocessing. An example from the draft, this will expand
+  // to valid preprocessing directives,
   //
   // #define EMPTY
   // EMPTY # include <file.h>
   //
-  // This parser attempts to recognise basic rules, and skip material which nominally matches preprocess content, but will not attempt expansion.
-
+  // This parser attempts to recognise basic rules, and skip material
+  // which nominally matches preprocess content, but will not attempt
+  // expansion.
 
   /** Matches consecutive lines of preprocessor directives.
     */
@@ -1454,7 +1420,6 @@ class C99
     PPTokens ~ LineEnd
   }
 
-
   //TODO: Implement...
   /*
    def MacroLParen = rule {
@@ -1469,6 +1434,48 @@ class C99
 
   def PPTokens = rule {
     oneOrMore(PreprocessingToken ~ PreprocessorWhitespace)
+  }
+
+  //-------------------------------------------------------------------------
+  //  Whitespace
+  //-------------------------------------------------------------------------
+
+  /** Skips classic whitespace chars
+    */
+  def WhitespaceChar = rule{ anyOf(" \t\r\n\f") }
+
+  /** Skip line ends
+    *
+    * Matches several variants of line endings, including classic
+    * Windows and Unix.
+    */
+  def LineEnd = rule(SuppressNode){ "\r\n" | "\r" | "\n" }
+
+  /** Match a sequence of any char not a line end.
+    *
+    * Silent skip (zeroOrMore)
+    */
+  def NotLineEnd = rule{ zeroOrMore(!("\r" | "\n" | EOI) ~ ANY) }
+
+  /** Matches space (including line ends) or C-style comments.
+    *
+    * The Parboiled manual includes some commentary about handling
+    * whitespace universally, by redefining the method 'rule'.
+    * However, some grammars can be made to work (without undue
+    * repetitions) with this rule, derived from the Parboiled Java
+    * parser.  which is more targeted.
+    *
+    * Silent skip (zeroOrMore)
+    */
+  def Spacing = rule(SuppressNode){
+    zeroOrMore(
+      // whitespace
+      oneOrMore(WhitespaceChar)
+        // traditional comment
+        | ("/*" ~ zeroOrMore(!("*/") ~ ANY) ~ "*/")
+        // end of line comment
+        | ("//" ~ NotLineEnd ~ LineEnd)
+    )
   }
 
   /** Matches space in preprocessor directives.
