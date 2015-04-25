@@ -1,12 +1,12 @@
-/**
-Copyright (C) 2015 Robert Crowther
-
-C99 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-C99 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with C99.  If not, see <http://www.gnu.org/licenses/>.
-*/
+//
+// Copyright (C) 2015 Robert Crowther
+//
+// C99 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+//
+// C99 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with C99. If not, see <http://www.gnu.org/licenses/>.
+//
 
 package languageConverter
 
@@ -33,7 +33,6 @@ import org.parboiled.errors.{ErrorUtils, ParsingException}
   * of PEG parsing in places, and added a few later specification
   * items. Notably, the grammar now includes preprocessor rules, which
   * any non-theoretical parser will need.
-  *
   */
 class C99
     extends Parser
@@ -63,12 +62,11 @@ class C99
     * In the Draft spec, tokens can be separated by
     * whitespace. Whitespace is not allowed anywhere else aside from
     * inside brackets, for header names and string literals.
-    *
     */
   def PreprocessingToken = rule {(
     HeaderName
-      | Identifier
-      | StringLiteral
+      | NoSpacingIdentifier
+      | NoSpacingStringLiteral
       | PPNumber
       | CharacterConstant
       | Punctuator
@@ -129,7 +127,7 @@ class C99
   // Separators, Operators
   //-------------------------------------------------------------------------
   // This implementation does not generate rules for every token.
-  // Some are implemented inline. 
+  // Some are implemented inline.
   // Tokens are not expanded in the draft spec, but a PEG parsers has them here.
 
   // N.B. These are working with the Terminal method
@@ -231,8 +229,8 @@ class C99
   }
 
   // Predef
-  final def HASH = rule {
-    ("#" ~ Spacing).label("-" + "#" + "-")
+  final def PREPROCESSHASH = rule {
+    ("#" ~ PreprocessorWhitespace).label("-" + "#" + "-")
   }
 
   // Punctuation
@@ -305,17 +303,17 @@ class C99
   // StructOrUnion
   // ...
   //
-/*
-  def Keyword = rule {
-    (
-      "goto" | "break" | "continue" | "return"
-        | "switch" | "case" | "default"
-        | "do" | "for" | "while"
-        | "if" | "else"
-        | "enum"
-    ) ~ !LetterOrDigit
-  }
-*/
+  /*
+   def Keyword = rule {
+   (
+   "goto" | "break" | "continue" | "return"
+   | "switch" | "case" | "default"
+   | "do" | "for" | "while"
+   | "if" | "else"
+   | "enum"
+   ) ~ !LetterOrDigit
+   }
+   */
   // N.B. These are working with the Keyword method
   // from Java, but not in Scala
   final def GOTO = ("goto" ~ !LetterOrDigit ~ Spacing).label("-" + "goto" + "-")
@@ -345,20 +343,30 @@ class C99
   // A.1.3 Identifiers
   //-------------------------------------------------------------------------
 
+  /** Matches a valid identifier/symbol.
+    *
+    * Used for preprocessing, which has diffeent spacing rules.
+    */
+  def NoSpacingIdentifier = rule(SuppressSubnodes) {
+    IdentifierChar ~ zeroOrMore(IdentifierChar|Digit)
+  }
+
+  /** Matches a valid identifier/symbol.
+    */
   def Identifier = rule(SuppressSubnodes) {
- IdentifierChar ~ zeroOrMore(IdentifierChar|Digit) ~ Spacing 
-}
+    IdentifierChar ~ zeroOrMore(IdentifierChar|Digit) ~ Spacing
+  }
 
   /** Matches characters accepatable in identifiers.
     *
     * Draft C Spec naming: `IdentifierNondigit`
     * Draft C Spec note: The original allows for implementation specific insertion of characters (a feature, in this implementation, not exploited)
     */
-def IdentifierChar = rule {(
-Letter
-| UniversalCharacterName
-//other implementation-defined characters
-)}
+  def IdentifierChar = rule {(
+    Letter
+      | UniversalCharacterName
+      //other implementation-defined characters
+  )}
 
   /** Matches low-byte letter characters.
     *
@@ -375,8 +383,8 @@ Letter
   // A.1.4 Universal character names
   //-------------------------------------------------------------------------
 
-/** Matches unicode characters
-*/
+  /** Matches unicode characters.
+    */
   def UniversalCharacterName  = rule {
     "\\u" ~ nTimes(4, HexadecimalDigit, Spacing)
     "\\U" ~ nTimes(8, HexadecimalDigit, Spacing)
@@ -417,7 +425,7 @@ Letter
     ("1" - "9") ~ zeroOrMore("0" - "9")
   }
 
-  /** An octal literal
+  /** An octal literal.
     *
     * Octal starts with a "0"
     */
@@ -484,8 +492,8 @@ Letter
   )}
 
   def CChar = rule {(
-// Draft spec statement below, but I thought c has a strict character set?
-// Ah well...
+    // Draft spec statement below, but I thought c has a strict character set?
+    // Ah well...
     // "any member of the source character set except
     // the single-quote ', backslash \, or new-line character"
     (!anyOf("'\\\n") ~ ANY)
@@ -528,21 +536,29 @@ Letter
   // is.  Currently, denying any true (non-inserted) newline control
   // chars
 
-  /** A string literal
+  /** A simple string literal.
     *
     * This is a generic string literal, used in preprocess parsing.
     *
     * Draft C Spec: part of `HeaderNames`
     */
-  def BStringLiteral = rule { "\"" ~ oneOrMore( !("\"" | LineEnd) ~ ANY) ~ "\"" }
+  def BStringLiteral = rule(SuppressSubnodes) { "\"" ~ oneOrMore( !("\"" | LineEnd) ~ ANY) ~ "\"" }
 
-  /** A string literal
+  /** A string literal with no spacing.
+    *
+    * This is the usual string literal, allowing a preceeding `Letter` as modifier. The rule is modified to remove spacing.
+    *
+    * Used in the preprocessor.
+    */
+  def NoSpacingStringLiteral = rule(SuppressSubnodes) { optional(Letter) ~ "\"" ~ zeroOrMore( !("\"" | "\\" | LineEnd) ~ ANY) ~ "\""}
+
+  /** A string literal.
     *
     * This is the usual string literal, allowing a preceeding `Letter` as modifier.
     */
   def StringLiteral = rule(SuppressSubnodes) { optional(Letter) ~ "\"" ~ zeroOrMore( !("\"" | "\\" | LineEnd) ~ ANY) ~ "\""  ~ Spacing}
 
-  /** A string delimited with angle brackets
+  /** A string delimited with angle brackets.
     *
     * Used in preprocess parsing.
     *
@@ -558,11 +574,11 @@ Letter
   def Punctuator  = rule {(
     ("=" ~ optional("="))
       | "." ~ optional("..")
-      | "[" 
+      | "["
       | "]"
-      | "(" 
-      | ")" 
-      | "{" 
+      | "("
+      | ")"
+      | "{"
       | "}"
       | "-" ~ optional(anyOf("=->"))
       | "|" ~ optional(anyOf("|="))
@@ -571,45 +587,45 @@ Letter
       | "/" ~ optional("=")
       | "+" ~ optional(anyOf("=+"))
 
-      | "*" ~ optional("=")
+    | "*" ~ optional("=")
       | "%" ~ optional("=:>")
       | "!" ~ optional("=")
       | "<" ~ optional(anyOf("=<%:"))
       | ">" ~ optional(anyOf("=>"))
       | ":" ~ optional(anyOf(">"))
-//TODO: Single HASH is freaking the parser? Is that with the HASH 
-// start to preprocessor lines, or a more subtle problem?
+      //TODO: Single PREPROCESSHASH is freaking the parser? Is that with the PREPROCESSHASH
+      // start to preprocessor lines, or a more subtle problem?
       | "##"
-    | "~" 
-    | "?" 
-    |  ";"
+      | "~"
+      | "?"
+      |  ";"
       | "<<="
       | ","
       | "%:%:"
       | ">>="
   )
-}
+  }
 
   //-------------------------------------------------------------------------
   // A.1.8 Header names
   //-------------------------------------------------------------------------
 
-/** Matches strings to be used in preprocessor header statements
-*
+  /** Matches strings to be used in preprocessor header statements.
+    *
     * Draft C Spec: `BStringLiteral` and `HStringLiteral` compound to `HeaderName`
-*/
-def HeaderName = rule {(
-HStringLiteral
-| BStringLiteral
-)}
+    */
+  def HeaderName = rule {(
+    HStringLiteral
+      | BStringLiteral
+  )}
 
   //-------------------------------------------------------------------------
   // A.1.9 Preprocessing numbers
   //-------------------------------------------------------------------------
 
   def PPNumber = rule {
-      optional(".") ~ Digit ~ zeroOrMore(
-         Digit
+    optional(".") ~ Digit ~ zeroOrMore(
+      Digit
         //| IdentifierNondigit ?
         | (anyOf("eEpP")) ~ Sign
         | "."
@@ -641,7 +657,7 @@ HStringLiteral
   // A.2.1 Expressions
   //-------------------------------------------------------------------------
 
-  /** Matches any expression which can fully evaluate within itself
+  /** Matches any expression which can fully evaluate within itself.
     *
     * A different name might be a `primitive' expression. The rule
     * also matches complex resolving expressions in brackets.
@@ -656,7 +672,7 @@ HStringLiteral
   )}
 
   
-  /** Matches the set of allowable operators after an expression
+  /** Matches the set of allowable operators after an expression.
     *
     * This includes such ideas as dot and pointer access to
     * structs/unions, post-decrements, array referencing, etc.
@@ -694,7 +710,7 @@ HStringLiteral
   }
 
 
-  /** Matches expressions with optional prefix operators
+  /** Matches expressions with optional prefix operators.
     *
     * If the expression is incomplete (only sizeof(...) is not), this
     * rule calls follows with `PostfixExpression'.
@@ -709,7 +725,7 @@ HStringLiteral
     )
   }
 
-  /** Matches single char prefix operators
+  /** Matches single char prefix operators.
     *
     * e.g. {{{!..., &...}}}
     */
@@ -724,7 +740,7 @@ HStringLiteral
     )
   }
 
-  /** Matches casts, then a following expression
+  /** Matches casts, then a following expression.
     * e.g. {{{ (int *) x++ }}} 
     */
   def CastExpression = rule {(
@@ -776,7 +792,7 @@ HStringLiteral
   }
 
 
-  /** Matches optional trailing conditional expressions
+  /** Matches optional trailing conditional expressions.
     *
     * The three way 'c' operator
     * e.g. {{{a ? b : c}}}
@@ -786,7 +802,7 @@ HStringLiteral
   )}
 
 
-  /** Matches an assigning expression
+  /** Matches an assigning expression.
     *
     * With adaption, this rule is used after the assign symbol (see
     * `Initializer'). The rule is also used directly in `Expression`.
@@ -819,7 +835,7 @@ HStringLiteral
     ) ~ Spacing
   }
 
-  /** Matches a list of assignment expressions
+  /** Matches a list of assignment expressions.
     * 
     * e.g. {{{ a=4, b=6, c=8}}} 
     */
@@ -851,7 +867,7 @@ HStringLiteral
   }
 
 
-  /** All pre-specifiers to a declaration
+  /** All pre-specifiers to a declaration.
     *
     * e.g. {{{ static const int }}}
     *
@@ -888,7 +904,7 @@ HStringLiteral
     Declarator ~ optional( ASSIGN ~ Initializer )
   }
   
-  /** Matches keywords for storage directions
+  /** Matches keywords for storage directions.
     *
     * e.g. {{{ static }}}, {{{ extern }}}
     *
@@ -925,7 +941,7 @@ HStringLiteral
     ) ~ !LetterOrDigit ~ Spacing
   }
 
-  /** Matches keyworded possibilities for a type name
+  /** Matches keyworded possibilities for a type name.
     *
     * This could be some keyword type primitives, a struct, or enum
     *
@@ -939,7 +955,7 @@ HStringLiteral
     )
   }
 
-  /** Matches possibilities for a type name
+  /** Matches possibilities for a type name.
     *
     * This could be a keyword primitive, a struct, enum, or, as a last
     * guess, any identity/symbol token.
@@ -977,7 +993,7 @@ HStringLiteral
     * for type specification and struct declaration. Only used in
     * casts, `sizeof` and `struct`s.
     *
-    * e.g. {{{ volatile long long }}}, {{{ const FMagic }}}
+    * e.g. {{{ volatile long long }}}
     * 
     * Draft C Spec naming: `SpecifierQualifierList`
     * 
@@ -1016,7 +1032,7 @@ HStringLiteral
     Enumerator ~ zeroOrMore( COMMA ~ Enumerator )
   }
 
-  /** Matches an enumerator
+  /** Matches an enumerator.
     *
     * Draft C Spec: compunds `EnumerationConstant` as an `Identifier`
     */
@@ -1032,7 +1048,7 @@ HStringLiteral
     ) ~ !LetterOrDigit ~ Spacing
   }
 
-  /** Opens declarative brackets for arrays and methods
+  /** Opens declarative brackets for arrays and methods.
     *
     * Opens method parameter brackets, amongst others,
     *
@@ -1064,7 +1080,7 @@ HStringLiteral
     (Identifier | (LPAR ~ Declarator ~ RPAR)) ~ zeroOrMore(DirectDeclaratorParameters)
   }
 
-  /** Matches a star used as a pointer operator, with optional qualifiers
+  /** Matches a star used as a pointer operator, with optional qualifiers.
     *
     * e.g. {{{ * const }}}
     *
@@ -1074,7 +1090,7 @@ HStringLiteral
     oneOrMore( STAR ~ zeroOrMore(TypeQualifier) )
   }
 
-  /** Matches a list of stars used as a pointer operator, with optional qualifiers
+  /** Matches a list of stars used as a pointer operator, with optional qualifiers.
     *
     * e.g. {{{ ** const }}}
     *
@@ -1104,7 +1120,7 @@ HStringLiteral
     ParameterDeclaration ~ zeroOrMore( COMMA ~ ParameterDeclaration )
   }
 
-  /** Matches the declaration of a single parameter
+  /** Matches the declaration of a single parameter.
     * 
     * e.g. {{{ const int orientation }}}
     */
@@ -1114,7 +1130,7 @@ HStringLiteral
   
 
 
-  /** Matches a list of identifiers
+  /** Matches a list of identifiers.
     *
     * Used in some declarations.
     */
@@ -1122,7 +1138,7 @@ HStringLiteral
     Identifier ~ zeroOrMore( COMMA ~ Identifier )
   }
 
-  /** Matches a typename, accounting for prefixed qualifiers
+  /** Matches a typename, accounting for prefixed qualifiers.
     *
     * Only used in casts and `sizeof`
     *
@@ -1146,7 +1162,7 @@ HStringLiteral
   )}
 
 
-  /** Matches declarators in some form of bracketing
+  /** Matches declarators in some form of bracketing.
     *
     * e.g. {{{ () }}}, {{{ ("beak") }}}, {{{ (int, short) }}}, {{{ [a + 1] }}}
     *
@@ -1159,7 +1175,7 @@ HStringLiteral
       |  LSQR ~ optional(STAR | AssignmentExpression) ~ RSQR
   )}
 
-  /** Matches a list of bracketed declarators
+  /** Matches a list of bracketed declarators.
     *
     * e.g. {{{ [a][b + 1] }}}
     *
@@ -1216,7 +1232,7 @@ HStringLiteral
       | JumpStatement
   )}
 
-  /** Matches elements in a switch statement
+  /** Matches elements in a switch statement.
     *
     * e.g. {{{ case ...: ... default ... : ... }}}
     */
@@ -1239,7 +1255,7 @@ HStringLiteral
   }
 
 
-  /** Matches a full statement
+  /** Matches a full statement.
     *
     * An expression and terminating semi-colon
     * e.g. {{{ [1] = 4; }}}
@@ -1248,7 +1264,7 @@ HStringLiteral
     optional(Expression) ~ SEMICOLON
   }
 
-  /** Matches branching statements
+  /** Matches branching statements.
     *
     * An `if` or `switch` statement
     * e.g. {{{ if(x--){ i++; } }}}
@@ -1258,7 +1274,7 @@ HStringLiteral
       | SWITCH ~ LPAR ~ Expression ~ RPAR ~ Statement
   )}
 
-  /** Matches loop statements
+  /** Matches loop statements.
     */
   def IterationStatement = rule {(
     WHILE ~ LPAR ~ Expression ~ RPAR ~ Statement
@@ -1267,7 +1283,7 @@ HStringLiteral
   )}
 
 
-  /** Matches jump statements
+  /** Matches jump statements.
     *
     * e.g. {{{ break; }}}, {{{ return; }}}
     */
@@ -1287,7 +1303,7 @@ HStringLiteral
   //-------------------------------------------------------------------------
 
 
-  /** Matches a declaration or a preprocessor declaration
+  /** Matches a declaration or a preprocessor declaration.
     *
     * Root of the rule tree.
     * @see [[Root]]
@@ -1297,13 +1313,13 @@ HStringLiteral
     zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
   }
 
-  /** Matches a function definition or a declaration
+  /** Matches a function definition or a declaration.
     */
   def ExternalDeclaration = rule(SuppressSubnodes) {
     FunctionDefinition | Declaration
   }
 
-  /** Matches a function
+  /** Matches a function.
     *
     * e.g. {{{ static void left(int *x, int *y) { *x--; } }}}
     */
@@ -1313,9 +1329,9 @@ HStringLiteral
   }
   
 
-  /** Matches a list of declarations
+  /** Matches a list of declarations.
     *
-    * e.g. "const int jimmy, static Greep cricket"  
+    * e.g. "const int jimmy, static Peep cricket"  
     */
   def DeclarationList = rule { oneOrMore( Declaration ) }
 
@@ -1343,14 +1359,25 @@ HStringLiteral
   //-------------------------------------------------------------------------
   //  A.3 Preprocessing directives
   //-------------------------------------------------------------------------
+  // Note that this parser is mainly intended as a reader, not a preliminary stage to
+  // processing. Thus it can not handle valid staged preprocessing. An example from
+  // the draft, this will expand to valid preprocessing directives,
+  //
+  // #define EMPTY
+  // EMPTY # include <file.h>
+  //
+  // This parser attempts to recognise basic rules, and skip material which nominally matches preprocess content, but will not attempt expansion.
 
-  def Group : Rule0 = rule { oneOrMore(GroupPart) }
+
+  /** Matches consecutive lines of preprocessor directives.
+    */
+  def Group : Rule0 = rule { oneOrMore(GroupPart) ~ Spacing }
 
   def GroupPart = rule {(
     IfSection
       | ControlLine
-      | TextLine
-      | (HASH ~ NonDirective)
+      //| TextLine
+      | (PREPROCESSHASH ~ NonDirective)
   )}
 
   def IfSection = rule {
@@ -1358,7 +1385,7 @@ HStringLiteral
   }
 
   def IfGroup : Rule0 = rule {
-    HASH ~ (
+    PREPROCESSHASH ~ (
       IF ~ ConstantExpression
         | (IFDEF | IFNDEF) ~ Identifier ~ LineEnd
     ) ~ LineEnd ~ optional(Group)
@@ -1368,22 +1395,18 @@ HStringLiteral
     ElifGroup ~ zeroOrMore(ElifGroup)
   }
 
-
   def ElifGroup = rule {
-    HASH ~ ELIF ~ ConstantExpression ~ LineEnd ~ optional(Group)
+    PREPROCESSHASH ~ ELIF ~ ConstantExpression ~ LineEnd ~ optional(Group)
   }
-
 
   def ElseGroup = rule {
-    HASH ~ ELSE ~ LineEnd ~ optional(Group)
+    PREPROCESSHASH ~ ELSE ~ LineEnd ~ optional(Group)
   }
 
+  def EndifLine = rule { PREPROCESSHASH ~ ENDIF ~ LineEnd }
 
-  def EndifLine = rule { HASH ~ ENDIF ~ LineEnd }
-
-
-  def ControlLine = rule {
-    HASH ~ optional(
+  def ControlLine = rule(SuppressSubnodes)  {
+    PREPROCESSHASH ~ optional(
       INCLUDE ~ PPTokens
         | DEFINE ~ Identifier ~ (
           ReplacementList
@@ -1399,12 +1422,34 @@ HStringLiteral
     ) ~ LineEnd
   }
 
+  /** Matches preprocessor tokens on a single line.
+    *
+    * This rule would be enabled in a full macro preprocessor, to
+    * detect possible material for expansion.
+    *
+    * It is disabled by default, because it will confuse a
+    * general/information-gathering parse. It will consume tokens
+    * which should be consumed elsewhere. It is a bad idea to
+    * introduce a very general parse rule inside a particular branch
+    * of the tree. In particuar this rule will consume
+    * comments. Comments are handled as the Draft suggests, as part of
+    * whitespace, and trail the preprocessing rules. So,
+    *
+    * *Warning!* Enable this and space rules will never reach comments.
+    */
+  //def TextLine = rule {
+  //  optional(PPTokens) ~ LineEnd
+  //}
 
-  def TextLine = rule {
-    optional(PPTokens) ~ LineEnd
-  }
-
-
+  /** Matches a preprocessing line with no directive name.
+    *
+    * As the parser can not handle preprocessing text expansion, this
+    * should skip lines which appear to be expandable by parser
+    * stages.
+    *
+    * Draft C Spec note: if a preeprocesssing directive name is not
+    * recognised, allow for relaxed skipping.
+    */
   def NonDirective = rule {
     PPTokens ~ LineEnd
   }
@@ -1423,8 +1468,15 @@ HStringLiteral
   }
 
   def PPTokens = rule {
-    oneOrMore(PreprocessingToken)
+    oneOrMore(PreprocessingToken ~ PreprocessorWhitespace)
   }
 
-
+  /** Matches space in preprocessor directives.
+    * 
+    * Draft C Spec note: This rule is for use after a parsing stage,
+    * when comments may have been replaced with spaces. Used here as a
+    * compromise.
+    */
+  def PreprocessorWhitespace = rule(SuppressNode){ zeroOrMore(anyOf(" \t")) }
+  
 }//CParser

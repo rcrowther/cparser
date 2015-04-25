@@ -34,7 +34,7 @@ With Parboiled. You'll need parboiled-core and parboiled-scala jars. Look at the
 
 Does it work?
 -------------
-I do not have thorough tests, and niether have I worked towards line-by-line verification. I know it can scan GLib files, which seems to me a reasonable rough test.
+I do not have thorough tests, and niether have I worked towards line-by-line verification. I know it can scan GLib files, which is... working 'c' code?
 
  
 References
