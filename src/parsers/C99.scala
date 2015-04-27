@@ -227,7 +227,7 @@ class C99
   // Predef
 
   final def PREPROCESSHASH = rule {
-    ("#" ~ PreprocessorWhitespace).label("-" + "#" + "-")
+    ("#" ~ PreprocessorSpacing).label("-" + "#" + "-")
   }
 
   // Punctuation
@@ -336,12 +336,16 @@ class C99
   // A.1.3 Identifiers
   //-------------------------------------------------------------------------
 
+  def NoSpacingIdentifier = rule(SuppressSubnodes) {
+    IdentifierChar ~ zeroOrMore(IdentifierChar|Digit)
+  }
+
   /** Matches a valid identifier/symbol.
     *
     * Used for preprocessing, which has diffeent spacing rules.
     */
-  def NoSpacingIdentifier = rule(SuppressSubnodes) {
-    IdentifierChar ~ zeroOrMore(IdentifierChar|Digit)
+  def PreprocessingIdentifier = rule(SuppressSubnodes) {
+    NoSpacingIdentifier ~ PreprocessorSpacing
   }
 
   /** Matches a valid identifier/symbol.
@@ -1346,7 +1350,7 @@ class C99
   def IfGroup : Rule0 = rule {
     PREPROCESSHASH ~ (
       IF ~ ConstantExpression
-        | (IFDEF | IFNDEF) ~ Identifier
+        | (IFDEF | IFNDEF) ~ PreprocessingIdentifier
     ) ~ LineEnd ~ optional(Group)
   }
 
@@ -1367,14 +1371,14 @@ class C99
   def ControlLine = rule(SuppressSubnodes)  {
     PREPROCESSHASH ~ optional(
       INCLUDE ~ PPTokens
-        | DEFINE ~ Identifier ~ (
+        | DEFINE ~ PreprocessingIdentifier ~ (
           ReplacementList
             | LPAR ~ (
               ELLIPSIS ~ RPAR
                 | optional(IdentifierList ~ optional(COMMA ~ ELLIPSIS)) ~ RPAR ~ ReplacementList
             )
         )
-        | UNDEF ~ Identifier
+        | UNDEF ~ PreprocessingIdentifier
         | LINE ~ PPTokens
         | ERROR ~ optional(PPTokens)
         | PRAGMA ~ optional(PPTokens)
@@ -1428,7 +1432,7 @@ class C99
   }
 
   def PPTokens = rule {
-    oneOrMore(PreprocessingToken ~ PreprocessorWhitespace)
+    oneOrMore(PreprocessingToken ~ PreprocessorSpacing)
   }
 
   //-------------------------------------------------------------------------
@@ -1479,6 +1483,6 @@ class C99
     * when comments may have been replaced with spaces. Used here as a
     * compromise.
     */
-  def PreprocessorWhitespace = rule(SuppressNode){ zeroOrMore(anyOf(" \t")) }
+  def PreprocessorSpacing = rule(SuppressNode){ zeroOrMore(anyOf(" \t")) }
   
 }//CParser
