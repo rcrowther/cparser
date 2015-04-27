@@ -36,7 +36,7 @@ import org.parboiled.errors.{ErrorUtils, ParsingException}
   */
 class C99
     extends Parser
-    // This import not needed!
+// This import not needed!
     with InParser
 {
 
@@ -564,7 +564,6 @@ class C99
     */
   def HStringLiteral = rule(SuppressSubnodes) { "<" ~ oneOrMore( !(">" | LineEnd) ~ ANY ) ~ ">" }
 
-
   //-------------------------------------------------------------------------
   // A.1.7 Punctuators
   //-------------------------------------------------------------------------
@@ -632,9 +631,6 @@ class C99
     ) ~ Spacing
   }
 
-
-
-
   //-------------------------------------------------------------------------
   // A.2 Phrase structure grammar
   //-------------------------------------------------------------------------
@@ -651,7 +647,6 @@ class C99
   def Root = rule {
     TranslationUnit
   }
-
 
   //-------------------------------------------------------------------------
   // A.2.1 Expressions
@@ -671,7 +666,6 @@ class C99
       | LPAR ~ Expression ~ RPAR
   )}
 
-  
   /** Matches the set of allowable operators after an expression.
     *
     * This includes such ideas as dot and pointer access to
@@ -708,7 +702,6 @@ class C99
   def ArgumentExpressionList = rule {
     AssignmentExpression ~ zeroOrMore( COMMA ~ AssignmentExpression )
   }
-
 
   /** Matches expressions with optional prefix operators.
     *
@@ -968,7 +961,7 @@ class C99
         | "union"
     ) ~ !LetterOrDigit ~ Spacing
   }
-    
+  
   def StructDeclarationList = rule {
     oneOrMore(StructDeclaration)
   }
@@ -1280,14 +1273,14 @@ class C99
     * @see [[Root]]
     */
   def TranslationUnit = rule {
-    //zeroOrMore(Spacing ~ (ExternalDeclaration | PreprocessDeclaration))
-    zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
+    //zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
+    zeroOrMore(Spacing ~ ExternalDeclaration)
   }
 
   /** Matches a function definition or a declaration.
     */
-  def ExternalDeclaration = rule(SuppressSubnodes) {
-    FunctionDefinition | Declaration
+  def ExternalDeclaration = rule {
+    FunctionDefinition | Declaration | Group
   }
 
   /** Matches a function.
@@ -1342,7 +1335,7 @@ class C99
   def GroupPart = rule {(
     IfSection
       | ControlLine
-      //| TextLine
+      | TextLine
       | (PREPROCESSHASH ~ NonDirective)
   )}
 
@@ -1393,19 +1386,21 @@ class C99
     * This rule would be enabled in a full macro preprocessor, to
     * detect possible material for expansion.
     *
-    * It is disabled by default, because it will confuse a
-    * general/information-gathering parse. It will consume tokens
-    * which should be consumed elsewhere. It is a bad idea to
-    * introduce a very general parse rule inside a particular branch
-    * of the tree. In particuar this rule will consume
-    * comments. Comments are handled as the Draft suggests, as part of
-    * whitespace, and trail the preprocessing rules. So,
+    * It is enabled by default in a limited way. The line must contain
+    * content. If it does not, the parsing will end whatever
+    * preprocessor group it believes it is in, and revert to
+    * [[ExternalDeclaration]], searching for 'c' code, space, etc.
     *
-    * *Warning!* Enable this and space rules will never reach comments.
+    * Thus the preprocessing rules expect preprocessing directives to
+    * end with a non-valid or empty line. This is not exactly spec,
+    * but is the way much 'c' code is written.
+    *
+    * Draft C Spec: The `PPTokens` element is optional.
+    * @see [[Group]] and [[GroupPart]]
     */
-  //def TextLine = rule {
-  //  optional(PPTokens) ~ LineEnd
-  //}
+  def TextLine = rule {
+    PPTokens ~ LineEnd
+  }
 
   /** Matches a preprocessing line with no directive name.
     *
@@ -1413,7 +1408,7 @@ class C99
     * should skip lines which appear to be expandable by parser
     * stages.
     *
-    * Draft C Spec note: if a preeprocesssing directive name is not
+    * Draft C Spec note: if a preprocesssing directive name is not
     * recognised, allow for relaxed skipping.
     */
   def NonDirective = rule {
@@ -1467,7 +1462,7 @@ class C99
     *
     * Silent skip (zeroOrMore)
     */
-  def Spacing = rule(SuppressNode){
+  def Spacing = rule(SuppressSubnodes){
     zeroOrMore(
       // whitespace
       oneOrMore(WhitespaceChar)
