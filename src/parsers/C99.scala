@@ -71,7 +71,7 @@ class C99
       | CharacterConstant
       | Punctuator
       //each non-white-space character that cannot be one of the above
-      //| (!anyOf(" \t\r\n\f") ~ ANY)
+      | (!anyOf(" \t\r\n\f") ~ ANY)
   )}
 
   //
@@ -1274,7 +1274,7 @@ class C99
     */
   def TranslationUnit = rule {
     //zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
-    zeroOrMore(Spacing ~ ExternalDeclaration)
+     Spacing ~ zeroOrMore( ExternalDeclaration ) ~ EOI
   }
 
   /** Matches a function definition or a declaration.
@@ -1346,7 +1346,7 @@ class C99
   def IfGroup : Rule0 = rule {
     PREPROCESSHASH ~ (
       IF ~ ConstantExpression
-        | (IFDEF | IFNDEF) ~ Identifier ~ LineEnd
+        | (IFDEF | IFNDEF) ~ Identifier
     ) ~ LineEnd ~ optional(Group)
   }
 
@@ -1444,13 +1444,13 @@ class C99
     * Matches several variants of line endings, including classic
     * Windows and Unix.
     */
-  def LineEnd = rule(SuppressNode){ "\r\n" | "\r" | "\n" }
+  def LineEnd = rule(SuppressNode){ "\r\n" | "\r" | "\n" | EOI }
 
   /** Match a sequence of any char not a line end.
     *
     * Silent skip (zeroOrMore)
     */
-  def NotLineEnd = rule{ zeroOrMore(!("\r" | "\n" | EOI) ~ ANY) }
+  def NotLineEnding = rule{ zeroOrMore(!anyOf( "\r\n" ) ~ ANY) }
 
   /** Matches space (including line ends) or C-style comments.
     *
@@ -1469,7 +1469,7 @@ class C99
         // traditional comment
         | ("/*" ~ zeroOrMore(!("*/") ~ ANY) ~ "*/")
         // end of line comment
-        | ("//" ~ NotLineEnd ~ LineEnd)
+        | ("//" ~ NotLineEnding ~ LineEnd)
     )
   }
 
