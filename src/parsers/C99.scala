@@ -32,12 +32,21 @@ import org.parboiled.errors.{ErrorUtils, ParsingException}
   * documentation where I have done this. I have also taken advantage
   * of PEG parsing in places, and added a few later specification
   * items. Notably, the grammar now includes preprocessor rules, which
-  * any non-theoretical parser will need.
+  * non-theoretical parsers may need.
+  *
+  * To enable rigourous parsing, it may be preferable to remove the
+  * preprocessing rules. To enable general handling, the rules allow
+  * a vast range of tokens. The rules can, for example, recognise a
+  * complete function (which may otherwise parse as false), as valid
+  * preprocessor tokens.
   */
+// This was an original effort, based on BISON code and a draft
+// C-spec.  It is more forgiving than CSlack, and parses pre-processor
+// code.  Sometime I may get round to merging some parts, particularly
+// a subsection of the preprocessing code, sometime.
+
 class C99
     extends Parser
-// This import not needed!
-    with InParser
 {
 
   //-------------------------------------------------------------------------
@@ -106,16 +115,22 @@ class C99
   //  Parboiled helper methods
   //-------------------------------------------------------------------------
 
-  def Keyword(keyword: String) = rule {
-    Terminal(keyword, LetterOrDigit)
+  def Keyword(kw: String) = rule {
+    Terminal(kw, LetterOrDigit)
   }
 
-  def Terminal(string: String) = rule {
-    (string ~ Spacing).label("-" + string + "-")
+  def Terminal(s: String) = rule {
+    (s ~ Spacing).label("-" + s + "-")
   }
 
-  def Terminal(string: String, mustNotFollow: Rule) = rule {
-    (string ~ !mustNotFollow ~ Spacing).label("-" + string + "-")
+  def Terminal(s: String, mustNotFollow: Rule) = rule {
+    (s ~ !mustNotFollow ~ Spacing).label("-" + s + "-")
+  }
+  
+  // Preprocessor keywords are not followed by space (due to)
+  // The need for following brackets to be close
+  def PreprocessorKeyword(s: String) = rule {
+    (s ~ PreprocessorSpacing).label("-PP" + s + "-")
   }
 
   //-------------------------------------------------------------------------
@@ -126,103 +141,30 @@ class C99
   // Tokens are not expanded in the draft spec, but Parboiled would
   // usually place them inline.
 
-  // N.B. These are working with the Terminal method
-  // from Java, but not in Scala
-  final def ASSIGN = rule {
-    ("=" ~ !"=" ~ Spacing).label("-" + "=" + "-")
-  }
-
-  final def PLUS = rule {
-    ("+" ~ !anyOf("=+") ~ Spacing).label("-" + "+" + "-")
-  }
-
-  final def MINUS = rule {
-    ("-" ~ !anyOf("=->") ~ Spacing).label("-" + "-" + "-")
-  }
-
-  final def DIV = rule {
-    ("/" ~ !"=" ~ Spacing).label("-" + "/" + "-")
-  }
-
-  final def STAR = rule {
-    ("*" ~ !"=" ~ Spacing).label("-" + "*" + "-")
-  }
-
-  final def MOD = rule {
-    ("%" ~ !"=" ~ Spacing).label("-" + "%" + "-")
-  }
-
-  final def AND = rule {
-    ("&" ~ !anyOf("=&") ~ Spacing).label("-" + "&" + "-")
-  }
-
-  final def OR = rule {
-    ("|" ~ !anyOf("=|") ~ Spacing).label("-" + "|" + "-")
-  }
-
-  final def XOR = rule {
-    ("^" ~ !"=" ~ Spacing).label("-" + "^" + "-")
-  }
-
-  final def NOT = rule {
-    ("!" ~ !"=" ~ Spacing).label("-" + "!" + "-")
-  }
-
-  final def TITHE = rule {
-    ("~" ~ Spacing).label("-" + "~" + "-")
-  }
-
-  final def GT = rule {
-    (">" ~ !anyOf("=>") ~ Spacing).label("-" + ">" + "-")
-  }
-
-  final def LT = rule {
-    ("<" ~ !anyOf("=<") ~ Spacing).label("-" + "<" + "-")
-  }
-
-  final def SHIFTL = rule {
-    ("<<" ~ !"=" ~ Spacing).label("-" + "<<" + "-")
-  }
-
-  final def SHIFTR = rule {
-    (">>" ~ !anyOf("=>") ~ Spacing).label("-" + ">>" + "-")
-  }
-
-  final def LTE = rule {
-    ("<=" ~ Spacing).label("-" + "<=" + "-")
-  }
-
-  final def GTE = rule {
-    (">=" ~ Spacing).label("-" + ">=" + "-")
-  }
-
-  final def ANDAND = rule {
-    ("&&" ~ Spacing).label("-" + "&&" + "-")
-  }
-
-  final def OROR = rule {
-    ("||" ~ Spacing).label("-" + "||" + "-")
-  }
-
-  final def INC = rule {
-    ("++" ~ Spacing).label("-" + "++" + "-")
-  }
-
-  final def DEC = rule {
-    ("--" ~ Spacing).label("-" + "--" + "-")
-  }
-
-  final def QUERY = rule {
-    ("?" ~ Spacing).label("-" + "?" + "-")
-  }
-
-  final def COLON = rule {
-    (":" ~ Spacing).label("-" + ":" + "-")
-  }
-
-  final def PTRACCESS = rule {
-    ("->" ~ Spacing).label("-" + "->" + "-")
-  }
+  final def ASSIGN = Terminal("=", "=")
+  final def PLUS = Terminal("+", anyOf("=+"))
+  final def MINUS = Terminal("-", anyOf("=->"))
+  final def DIV = Terminal("/", "=")
+  final def STAR = Terminal("*", "=")
+  final def MOD = Terminal("%", "=")
+  final def AND = Terminal("&", anyOf("=&"))
+  final def OR = Terminal("|", anyOf("=|"))
+  final def XOR = Terminal("^", "=")
+  final def NOT = Terminal("!", "=")
+  final def TITHE = Terminal("~")
+  final def GT = Terminal(">", anyOf("=>"))
+  final def LT = Terminal("<", anyOf("=<"))
+  final def SHIFTL = Terminal("<<", "=")
+  final def SHIFTR = Terminal(">>", anyOf("=>"))
+  final def LTE = Terminal("<=")
+  final def GTE = Terminal(">=")
+  final def ANDAND = Terminal("&&")
+  final def OROR = Terminal("||")
+  final def INC = Terminal("++")
+  final def DEC = Terminal("--")
+  final def QUERY = Terminal("?")
+  final def COLON = Terminal(":")
+  final def PTRACCESS = Terminal("->")
 
   // Predef
 
@@ -232,45 +174,18 @@ class C99
 
   // Punctuation
 
-  final def COMMA = rule {
-    ("," ~ Spacing).label("-" + "," + "-")
-  }
-
-  final def LPAR = rule {
-    ("(" ~ Spacing).label("-" + "(" + "-")
-  }
-
-  final def RPAR = rule {
-    (")" ~ Spacing).label("-" + ")" + "-")
-  }
-
-  final def LCURVEY = rule {
-    ("{" ~ Spacing).label("-" + "{" + "-")
-  }
-
-  final def RCURVEY = rule {
-    ("}" ~ Spacing).label("-" + "}" + "-")
-  }
-
-  final def LSQR = rule {
-    ("[" ~ Spacing).label("-" + "[" + "-")
-  }
-
-  final def RSQR = rule {
-    ("]" ~ Spacing).label("-" + "]" + "-")
-  }
-
-  final def SEMICOLON = rule {
-    (";" ~ Spacing).label("-" + ";" + "-")
-  }
-
-  final def DOT = rule {
-    ("." ~ Spacing).label("-" + "." + "-")
-  }
-
-  final def ELLIPSIS = rule {
-    ("..." ~ Spacing).label("-" + "..." + "-")
-  }
+  final def COMMA = Terminal(",")
+  
+  final def LPAR = Terminal("(")
+  final def RPAR = Terminal(")")
+  final def LCURVEY = Terminal("{")
+  final def RCURVEY = Terminal("}")
+  final def LSQR = Terminal("[")
+  final def RSQR = Terminal("]")
+  
+  final def SEMICOLON = Terminal(";")
+  final def DOT = Terminal(".")
+  final def ELLIPSIS = Terminal("...")
 
   //-------------------------------------------------------------------------
   //  A.1.2 Keywords
@@ -308,29 +223,28 @@ class C99
    ) ~ !LetterOrDigit
    }
    */
-  // N.B. These are working with the Keyword method
-  // from Java, but not in Scala
-  final def GOTO = ("goto" ~ !LetterOrDigit ~ Spacing).label("-" + "goto" + "-")
-  final def SIZEOF = ("sizeof" ~ !LetterOrDigit ~ Spacing).label("-" + "sizeof" + "-")
 
-  final def BREAK = ("break" ~ !LetterOrDigit ~ Spacing).label("-" + "break" + "-")
-  final def CONTINUE = ("continue" ~ !LetterOrDigit ~ Spacing).label("-" + "continue" + "-")
-  final def RETURN = ("return" ~ !LetterOrDigit ~ Spacing).label("-" + "return" + "-")
+  final def GOTO = Keyword("goto")
+  final def SIZEOF = Keyword("sizeof")
 
-  final def SWITCH = ("switch" ~ !LetterOrDigit ~ Spacing).label("-" + "switch" + "-")
-  final def CASE = ("case" ~ !LetterOrDigit ~ Spacing).label("-" + "case" + "-")
-  final def DEFAULT = ("default" ~ !LetterOrDigit ~ Spacing).label("-" + "default" + "-")
+  final def BREAK = Keyword("break")
+  final def CONTINUE = Keyword("continue")
+  final def RETURN = Keyword("return")
 
-  final def DO = ("do" ~ !LetterOrDigit ~ Spacing).label("-" + "do" + "-")
-  final def FOR = ("for" ~ !LetterOrDigit ~ Spacing).label("-" + "for" + "-")
-  final def WHILE = ("while" ~ !LetterOrDigit ~ Spacing).label("-" + "while" + "-")
+  final def SWITCH = Keyword("switch")
+  final def CASE = Keyword("case")
+  final def DEFAULT = Keyword("default")
 
-  final def IF = ("if" ~ !LetterOrDigit ~ Spacing).label("-" + "if" + "-")
-  final def ELSE = ("else" ~ !LetterOrDigit ~ Spacing).label("-" + "else" + "-")
+  final def DO = Keyword("do")
+  final def FOR = Keyword("for")
+  final def WHILE = Keyword("while")
 
-  final def ENUM = ("enum" ~ !LetterOrDigit ~ Spacing).label("-" + "enum" + "-")
+  final def IF = Keyword("if")
+  final def ELSE = Keyword("else")
 
-  final def STATIC = ("static" ~ !LetterOrDigit ~ Spacing).label("-" + "static" + "-")
+  final def ENUM = Keyword("enum")
+
+  final def STATIC = Keyword("static")
 
   //-------------------------------------------------------------------------
   // A.1.3 Identifiers
@@ -595,7 +509,7 @@ class C99
       | ">" ~ optional(anyOf("=>"))
       | ":" ~ optional(anyOf(">"))
       //TODO: Single PREPROCESSHASH is freaking the parser? Is that
-      //with the PREPROCESSHASH
+      // with the PREPROCESSHASH
       // start to preprocessor lines, or a more subtle problem?
       | "##"
       | "~"
@@ -632,7 +546,7 @@ class C99
         //| IdentifierNondigit ?
         | (anyOf("eEpP")) ~ Sign
         | "."
-    ) ~ Spacing
+    ) ~ PreprocessorSpacing
   }
 
   //-------------------------------------------------------------------------
@@ -839,7 +753,7 @@ class C99
   /** Any conditional expression
     * Conditional expressions cascade into constants.
     *
-    * @see [[ConstantExpression]]
+    * @see [[ConditionalExpression]]
     */
   def ConstantExpression = rule {
     ConditionalExpression
@@ -886,7 +800,7 @@ class C99
     * This Rule gathers the `Declarator', the assignment symbol `=',
     * and the `Initializer' to the right.
     *
-    * e.g. {{{rack = 19}}}
+    * e.g. {{{ rack = 19 }}}
     */
   def InitDeclarator = rule {
     Declarator ~ optional( ASSIGN ~ Initializer )
@@ -1278,7 +1192,7 @@ class C99
     */
   def TranslationUnit = rule {
     //zeroOrMore(Spacing ~ (ExternalDeclaration | Group))
-     Spacing ~ zeroOrMore( ExternalDeclaration ) ~ EOI
+    Spacing ~ zeroOrMore( ExternalDeclaration ) ~ EOI
   }
 
   /** Matches a function definition or a declaration.
@@ -1306,30 +1220,34 @@ class C99
   //  Preprocessor Keywords
   //-------------------------------------------------------------------------
 
-  final def IFDEF = ("ifdef" ~ !LetterOrDigit ~ Spacing).label("-" + "ifdef" + "-")
-  final def IFNDEF = ("ifndef" ~ !LetterOrDigit ~ Spacing).label("-" + "ifndef" + "-")
-  final def ELIF = ("elif" ~ !LetterOrDigit ~ Spacing).label("-" + "elif" + "-")
-  final def ENDIF = ("endif" ~ !LetterOrDigit ~ Spacing).label("-" + "endif" + "-")
-  final def INCLUDE = ("include" ~ !LetterOrDigit ~ Spacing).label("-" + "include" + "-")
-  final def DEFINE = ("define" ~ !LetterOrDigit ~ Spacing).label("-" + "define" + "-")
-  final def UNDEF = ("undef" ~ !LetterOrDigit ~ Spacing).label("-" + "undef" + "-")
-  final def LINE = ("line" ~ !LetterOrDigit ~ Spacing).label("-" + "line" + "-")
-  final def PRAGMA = ("pragma" ~ !LetterOrDigit ~ Spacing).label("-" + "pragma" + "-")
-  final def ERROR = ("error" ~ !LetterOrDigit ~ Spacing).label("-" + "error" + "-")
+  // 'if'/'else' clash, and Parboiled is not happy.
+  // So all 'if' keywords are manually inlined. R.C.
+  //final def PPIF = PreprocessorKeyword("if")
+  //final def IFDEF = PreprocessorKeyword("ifdef")
+  //final def IFNDEF = PreprocessorKeyword("ifndef")
+  //final def ELIF = PreprocessorKeyword("elif")
+  //final def PPELSE = PreprocessorKeyword("else")
+  //final def ENDIF = PreprocessorKeyword("endif")
+  final def INCLUDE = PreprocessorKeyword("include")
+  final def DEFINE = PreprocessorKeyword("define")
+  final def UNDEF = PreprocessorKeyword("undef")
+  final def LINE = PreprocessorKeyword("line")
+  final def PRAGMA = PreprocessorKeyword("pragma")
+  final def ERROR = PreprocessorKeyword("error")
 
   //-------------------------------------------------------------------------
   //  A.3 Preprocessing directives
   //-------------------------------------------------------------------------
   // Note that this parser is mainly intended as a reader, not a
   // preliminary stage to processing. Thus it can not handle valid
-  // staged preprocessing. An example from the draft, this will expand
+  // staged preprocessing. An example from the draft spec, this will expand
   // to valid preprocessing directives,
   //
   // #define EMPTY
   // EMPTY # include <file.h>
   //
   // This parser attempts to recognise basic rules, and skip material
-  // which nominally matches preprocess content, but will not attempt
+  // which matches preprocess content, but will not attempt
   // expansion.
 
   /** Matches consecutive lines of preprocessor directives.
@@ -1337,48 +1255,55 @@ class C99
   def Group : Rule0 = rule { oneOrMore(GroupPart) ~ Spacing }
 
   def GroupPart = rule {(
-    IfSection
-      | ControlLine
-      | TextLine
-      | (PREPROCESSHASH ~ NonDirective)
+    PREPROCESSHASH ~ (
+      IfSection
+        | ControlLine
+        //| (PREPROCESSHASH ~ NonDirective)
+    )
+      //| TextLine
   )}
 
   def IfSection = rule {
     IfGroup ~ optional(ElifGroups) ~ optional(ElseGroup) ~ EndifLine
   }
 
+  // Not very factored?
   def IfGroup : Rule0 = rule {
-    PREPROCESSHASH ~ (
-      IF ~ ConstantExpression
-        | (IFDEF | IFNDEF) ~ PreprocessingIdentifier
-    ) ~ LineEnd ~ optional(Group)
+    (
+      "ifdef" ~ PreprocessorSpacing ~ PreprocessingIdentifier
+        | "ifndef" ~ PreprocessorSpacing ~ PreprocessingIdentifier
+        //| "if" ~ PreprocessorSpacing ~ ConstantExpression
+        | "if" ~ PreprocessorSpacing ~ PPTokens
+    ) ~ LineEnd //~ optional(Group)
   }
 
   def ElifGroups = rule {
-    ElifGroup ~ zeroOrMore(ElifGroup)
+    oneOrMore(ElifGroup)
   }
 
   def ElifGroup = rule {
-    PREPROCESSHASH ~ ELIF ~ ConstantExpression ~ LineEnd ~ optional(Group)
+    //PREPROCESSHASH ~ "elif" ~ PreprocessorSpacing ~ ConstantExpression ~ LineEnd ~ optional(Group)
+    PREPROCESSHASH ~ "elif" ~ PreprocessorSpacing ~ PPTokens ~ LineEnd ~ optional(Group)
   }
 
   def ElseGroup = rule {
-    PREPROCESSHASH ~ ELSE ~ LineEnd ~ optional(Group)
+    PREPROCESSHASH ~ "else" ~ PreprocessorSpacing ~ LineEnd ~ optional(Group)
   }
 
-  def EndifLine = rule { PREPROCESSHASH ~ ENDIF ~ LineEnd }
+  def EndifLine = rule { PREPROCESSHASH ~ "endif" ~ PreprocessorSpacing ~ PreprocessorSpacing ~ LineEnd }
 
-  def ControlLine = rule(SuppressSubnodes)  {
-    PREPROCESSHASH ~ optional(
-      INCLUDE ~ PPTokens
-        | DEFINE ~ PreprocessingIdentifier ~ (
-          ReplacementList
-            | LPAR ~ (
-              ELLIPSIS ~ RPAR
-                | optional(IdentifierList ~ optional(COMMA ~ ELLIPSIS)) ~ RPAR ~ ReplacementList
-            )
+  def ControlLine = rule  {
+    optional(
+      "include" ~ PreprocessorSpacing ~ PPTokens
+        | "define" ~ PreprocessorSpacing ~ PreprocessingIdentifier ~ (
+
+          LPAR ~ (
+            ELLIPSIS ~ RPAR
+              | optional(IdentifierList ~ optional(COMMA ~ ELLIPSIS)) ~ RPAR ~ ReplacementList
+          )
+            |          ReplacementList
         )
-        | UNDEF ~ PreprocessingIdentifier
+        | UNDEF ~ Identifier
         | LINE ~ PPTokens
         | ERROR ~ optional(PPTokens)
         | PRAGMA ~ optional(PPTokens)
@@ -1420,12 +1345,11 @@ class C99
   }
 
   //TODO: Implement...
-  /*
-   def MacroLParen = rule {
-   //a ( character not immediately preceded by white-space
-   "("
-   }
-   */
+  def PreprocessingLParen = rule {
+    //a ( character not immediately preceded by white-space
+    ("(" ~ PreprocessorSpacing).label("-" + "[preproc](" + "-")
+  }
+
 
   def ReplacementList = rule {
     optional(PPTokens)
@@ -1483,6 +1407,6 @@ class C99
     * when comments may have been replaced with spaces. Used here as a
     * compromise.
     */
-  def PreprocessorSpacing = rule(SuppressNode){ zeroOrMore(anyOf(" \t")) }
+  def PreprocessorSpacing = rule{ zeroOrMore(anyOf(" \t")) }
   
 }//CParser
