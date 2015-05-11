@@ -6,14 +6,16 @@ A `c` parser (Scala)
 --------------------
 A `c` parser written in Scala. For Parboiled, the Java/Scala PEG parser.
 
-You only need one file from here, /src/parsers/c99.scala. All the rest is support framework.
+You only need one file from here, /src/parsers/CSlack.scala. /src/parsers/C99.scala was an interesting first version, and has some pre-processor directive handling. Anything else is support framework.
 
 
 Which dialect?
 --------------
 Saying you can parse 'c' is like saying you speak English. Which?
 
-This file was based on BISON parsers available online, dated 1995. That may be the informal 'C95' standard. The rule tree was heavily revised in light of a 2005 draft 'c' spec. The draft could be any version, I'll never know, but it does include notable features such as "inline". I called it 'C99'. Likely it is, in some form.
+C99 was based on BISON parsers available online, dated 1995. That may be the informal 'C95' standard. The rule tree was heavily revised in light of a 2005 draft 'c' spec. The draft could be any version, I'll never know, but it does include notable features such as "inline". I called it 'C99'. Likely it is, in some form.
+
+CSlack is based on the Mouse grammar. It's recent, but what it is, I don't know.
 
 
 How close is it?
@@ -34,7 +36,7 @@ With Parboiled. You'll need 'parboiled-core' and 'parboiled-scala' jars. Look at
 
 Does it work?
 -------------
-I do not have thorough tests. Niether have I worked towards line-by-line verification. I know it can scan GLib files, which is... working 'c' code?
+I do not have thorough tests. Neither have I worked towards line-by-line verification. I know it can scan GLib files, which is... working 'c' code?
 
  
 References
@@ -52,3 +54,5 @@ https://github.com/sirthias/parboiled
 Parboiled Home page,
 http://parboiled.org
 
+C PEG file, for Mouse,
+http://www.romanredz.se/papers/C.peg
